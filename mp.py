@@ -1,10 +1,12 @@
 import asyncio
 import time
+import uuid
 from typing import Union
 
 import httpx
 
 from app import APP_ID, APP_SECRET, db
+from utils import preprocess_image
 
 BASE_URL = 'https://api.weixin.qq.com/cgi-bin'
 
@@ -59,7 +61,7 @@ class Mp:
         r = await self.c.post(
             '/material/add_material',
             params={'type': mime_type},
-            files={'media': file}
+            files={'media': (f'{uuid.uuid4()}.jpeg', file)}
         )
         r = r.json()
         if 'url' not in r:
@@ -76,7 +78,7 @@ class Mp:
             else:
                 with open(image, 'rb') as f:
                     image = f.read()
-        # TODO: 超过 10M 图片压缩，仅支持 bmp/png/jpeg/jpg/gif
+        image = preprocess_image(image)
         return await self.upload_material(image)
 
 

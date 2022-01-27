@@ -4,11 +4,38 @@ import uuid
 from typing import Union
 
 import httpx
+import orjson
 
-from app import APP_ID, APP_SECRET, db
+from app import APP_ID, APP_SECRET, db, main
 from utils import preprocess_image
 
 BASE_URL = 'https://api.weixin.qq.com/cgi-bin'
+
+
+# def repeated_login(func):
+#     @wraps(func)
+#     def wrapper(*args, **kwargs):
+#         time.sleep(0.15)  # 暂停一段时间，防止系统检测异常（间隔为 0.1s 会报 “请不要过快点击” ）
+#         r = func(*args, **kwargs)
+#
+#         # arg[0]是self，arg[1]是url
+#         args = list(args)
+#         args[1] = new_url
+#         return func(*args, **kwargs)
+#
+#
+#     return wrapper
+
+
+class AsyncClient(httpx.AsyncClient):
+    def get(self, *args, **kwargs):
+        return super().get(*args, **kwargs)
+
+    def post(self, *args, **kwargs):
+        if 'json' in kwargs:
+            kwargs['content'] = orjson.dumps(kwargs['json'])
+            del kwargs['json']
+        return super().post(*args, **kwargs)
 
 
 class Mp:
@@ -24,8 +51,18 @@ class Mp:
         else:
             return access_token
 
+    @property
+    async def default_thumb_media_id(self):
+        i = db.get('default_thumb_media_id', '')
+        if not i:
+            array = await self.list_materials()
+            assert len(array) > 0, '至少需要先上传一张图片'
+            i = array[0]['media_id']
+            db.set('default_thumb_media_id', i)
+        return i
+
     async def _create_client(self):
-        return httpx.AsyncClient(
+        return AsyncClient(
             base_url=BASE_URL,
             params={'access_token': await self.access_token}
         )
@@ -57,11 +94,11 @@ class Mp:
         db.set('access_token_expires', time.time() + r.get('expires_in', 0))
         return access_token
 
-    async def upload_material(self, file: bytes, mime_type='image'):
+    async def upload_material(self, file: bytes, file_type='image', mime='jpeg'):
         r = await self.c.post(
             '/material/add_material',
-            params={'type': mime_type},
-            files={'media': (f'{uuid.uuid4()}.jpeg', file)}
+            params={'type': file_type},
+            files={'media': (f'{uuid.uuid4()}.{mime}', file)}
         )
         r = r.json()
         if 'url' not in r:
@@ -78,13 +115,40 @@ class Mp:
             else:
                 with open(image, 'rb') as f:
                     image = f.read()
-        image = preprocess_image(image)
-        return await self.upload_material(image)
+        image, mime = preprocess_image(image)
+        return await self.upload_material(image, mime=mime)
 
+    async def list_materials(self, mime_type='image', offset=0, count=20):
+        r = await self.c.post('/material/batchget_material', json={
+            'type': mime_type,
+            'offset': offset,
+            'count': count
+        })
+        r = r.json()
+        print(r.get('errmsg', ''))
+        return r.get('item')
 
-async def main():
-    async with Mp() as mp:
-        print(await mp.upload_image('data/image.jpg'))
+    async def upload_draft(self, title: str, content: str, thumb_media_id=None) -> str:
+        thumb_media_id = thumb_media_id or await self.default_thumb_media_id
+        r = await self.c.post('/draft/add', json={
+            'articles': [{
+                'title': title,
+                'content': content,
+                'thumb_media_id': thumb_media_id
+            }]
+        })
+        r = r.json()
+        print(r.get('errmsg', ''))
+        return r.get('media_id')
+
+    async def publish(self, media_id: str) -> bool:
+        r = await self.c.post('/freepublish/submit', json={
+            'media_id': media_id
+        })
+        r = r.json()
+        if r.get('errcode') != 0:
+            print(r.get('errmsg'))
+        return r.get('errcode') == 0
 
 
 if __name__ == '__main__':

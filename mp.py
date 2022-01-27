@@ -6,7 +6,8 @@ from typing import Union
 import httpx
 import orjson
 
-from app import APP_ID, APP_SECRET, db, main
+from app import db, main
+from config import APP_ID, APP_SECRET
 from utils import preprocess_image
 
 BASE_URL = 'https://api.weixin.qq.com/cgi-bin'

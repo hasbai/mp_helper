@@ -1,6 +1,14 @@
 import io
+import os
+import time
 
+import pyperclip
 from PIL import Image
+from selenium import webdriver
+from selenium.webdriver import ActionChains, Keys
+from selenium.webdriver.common.by import By
+
+from config import PROXY, DOOCS_MD_URL
 
 Image.MAX_IMAGE_PIXELS = None
 
@@ -36,6 +44,45 @@ def preprocess_image(image: bytes, size=10) -> tuple[bytes, str]:
     return bytes_io.getvalue(), 'jpeg'
 
 
+chrome_options = webdriver.ChromeOptions()
+if PROXY:
+    chrome_options.add_argument(f'--proxy-server={PROXY}')
+chrome_options.add_argument('--headless')
+chrome_options.add_argument('--disable-gpu')
+chrome_options.add_argument('--window-size=1920x1080')
+chrome_options.add_experimental_option('prefs', {
+    'download.default_directory': os.getcwd()
+})
+driver = webdriver.Chrome(options=chrome_options)
+driver.get(DOOCS_MD_URL)
+time.sleep(2)
+action = ActionChains(driver)
+action.click(
+    driver.find_element(by=By.CSS_SELECTOR, value='.el-switch')
+).perform()
+
+
+def markdown_to_html(content: str) -> str:
+    e = driver.find_element(by=By.CSS_SELECTOR, value='.CodeMirror textarea')
+    action.click(e).perform()
+    e.send_keys(Keys.CONTROL, 'a')
+    e.send_keys(Keys.BACKSPACE)
+    pyperclip.copy(content)
+    e.send_keys(Keys.CONTROL, 'v')
+    time.sleep(0.5)
+    action.click(
+        driver.find_element(by=By.CSS_SELECTOR, value='.el-icon-document')
+    ).perform()
+    time.sleep(1)
+    with open('content.html', encoding='utf-8') as f:
+        content = f.read()
+    os.remove('content.html')
+    print(content)
+    return content
+
+
 if __name__ == '__main__':
-    with open('data/gif.gif', 'rb') as f:
-        preprocess_image(f.read())
+    with open('data/md.md', 'r', encoding='utf-8') as f:
+        html = markdown_to_html(f.read())
+    with open('data/html.html', 'w', encoding='utf-8') as f:
+        f.write(html)

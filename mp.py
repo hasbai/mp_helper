@@ -30,10 +30,7 @@ MAX_RETRIES = 5
 
 
 class AsyncClient(httpx.AsyncClient):
-    async def request(self, *args, **kwargs):
-        if 'json' in kwargs:
-            kwargs['content'] = orjson.dumps(kwargs['json'])
-            del kwargs['json']
+    async def _retry(self, *args, **kwargs):
         for i in range(MAX_RETRIES):
             try:
                 r = await super().request(*args, **kwargs)
@@ -45,6 +42,16 @@ class AsyncClient(httpx.AsyncClient):
             else:
                 return r
 
+    async def request(self, *args, **kwargs):
+        if 'json' in kwargs:
+            kwargs['content'] = orjson.dumps(kwargs['json'])
+            del kwargs['json']
+        r = await self._retry(*args, **kwargs)
+        if r.json().get('errcode') == 40001:
+            self.params['access_token'] = await update_access_token()
+            return await self._retry(*args, **kwargs)
+        return r
+
 
 class Mp:
     def __init__(self):
@@ -55,7 +62,7 @@ class Mp:
         access_token = db.get('access_token', '')
         expires = db.get('access_token_expires', time.time())
         if not access_token or expires - time.time() < 600:
-            return await self.update_access_token()
+            return await update_access_token()
         else:
             return access_token
 
@@ -87,20 +94,6 @@ class Mp:
 
     async def __aexit__(self, *args):
         await self.c.aclose()
-
-    async def update_access_token(self) -> str:
-        async with httpx.AsyncClient(base_url=BASE_URL) as c:
-            r = await c.get('/token', params={
-                'grant_type': 'client_credential',
-                'appid': APP_ID,
-                'secret': APP_SECRET
-            })
-        r = r.json()
-        access_token = r.get('access_token')
-        assert access_token, f'Update access token failed {r.get("errmsg")}'
-        db.set('access_token', access_token)
-        db.set('access_token_expires', time.time() + r.get('expires_in', 0))
-        return access_token
 
     async def upload_material(self, file: bytes, file_type='image', mime='jpeg'):
         r = await self.c.post(
@@ -162,9 +155,24 @@ class Mp:
         return r.get('errcode') == 0
 
 
+async def update_access_token() -> str:
+    async with httpx.AsyncClient(base_url=BASE_URL) as c:
+        r = await c.get('/token', params={
+            'grant_type': 'client_credential',
+            'appid': APP_ID,
+            'secret': APP_SECRET
+        })
+    r = r.json()
+    access_token = r.get('access_token')
+    assert access_token, f'Update access token failed {r.get("errmsg")}'
+    db.set('access_token', access_token)
+    db.set('access_token_expires', time.time() + r.get('expires_in', 0))
+    return access_token
+
+
 async def debug():
-    async with AsyncClient() as c:
-        await c.get('https://www.google.com')
+    async with Mp() as mp:
+        print(await mp.list_materials(offset=0))
 
 
 if __name__ == '__main__':

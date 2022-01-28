@@ -146,9 +146,23 @@ class Mp:
         print(r.get('errmsg', ''))
         return r.get('media_id')
 
-    async def publish(self, media_id: str) -> bool:
+    async def hypocritical_publish(self, media_id: str) -> bool:
+        # "发布"
         r = await self.c.post('/freepublish/submit', json={
             'media_id': media_id
+        })
+        r = r.json()
+        if r.get('errcode') != 0:
+            print(r.get('errmsg'))
+        return r.get('errcode') == 0
+
+    async def publish(self, media_id: str) -> bool:
+        # "群发"
+        r = await self.c.post('/message/mass/sendall', json={
+            'filter': {'is_to_all': True},
+            'mpnews': {'media_id': media_id},
+            'msgtype': 'mpnews',
+            'send_ignore_reprint': 1
         })
         r = r.json()
         if r.get('errcode') != 0:

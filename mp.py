@@ -1,3 +1,4 @@
+import asyncio
 import time
 import uuid
 from typing import Union
@@ -10,7 +11,6 @@ from config import db
 from utils import preprocess_image
 
 BASE_URL = 'https://api.weixin.qq.com/cgi-bin'
-
 
 # def repeated_login(func):
 #     @wraps(func)
@@ -26,16 +26,24 @@ BASE_URL = 'https://api.weixin.qq.com/cgi-bin'
 #
 #     return wrapper
 
+MAX_RETRIES = 5
+
 
 class AsyncClient(httpx.AsyncClient):
-    def get(self, *args, **kwargs):
-        return super().get(*args, **kwargs)
-
-    def post(self, *args, **kwargs):
+    async def request(self, *args, **kwargs):
         if 'json' in kwargs:
             kwargs['content'] = orjson.dumps(kwargs['json'])
             del kwargs['json']
-        return super().post(*args, **kwargs)
+        for i in range(MAX_RETRIES):
+            try:
+                r = await super().request(*args, **kwargs)
+            except httpx.HTTPError:
+                if i == MAX_RETRIES:
+                    raise httpx.HTTPError
+                print(f'[W] Network error, retrying...[{i + 1}/{MAX_RETRIES}]')
+                continue
+            else:
+                return r
 
 
 class Mp:
@@ -154,6 +162,10 @@ class Mp:
         return r.get('errcode') == 0
 
 
+async def debug():
+    async with AsyncClient() as c:
+        await c.get('https://www.google.com')
+
+
 if __name__ == '__main__':
-    pass
-# asyncio.run(main(), debug=True)
+    asyncio.run(debug(), debug=True)

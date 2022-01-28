@@ -1,4 +1,3 @@
-import asyncio
 import time
 import uuid
 from typing import Union
@@ -6,8 +5,8 @@ from typing import Union
 import httpx
 import orjson
 
-from app import db, main
 from config import APP_ID, APP_SECRET
+from config import db
 from utils import preprocess_image
 
 BASE_URL = 'https://api.weixin.qq.com/cgi-bin'
@@ -129,15 +128,23 @@ class Mp:
         print(r.get('errmsg', ''))
         return r.get('item')
 
-    async def upload_draft(self, title: str, content: str, thumb_media_id=None) -> str:
+    async def upload_draft(self, title: str, content: str, digest=None, author=None, source_url=None,
+                           thumb_media_id=None) -> str:
         thumb_media_id = thumb_media_id or await self.default_thumb_media_id
-        r = await self.c.post('/draft/add', json={
-            'articles': [{
-                'title': title,
-                'content': content,
-                'thumb_media_id': thumb_media_id
-            }]
-        })
+        data = {
+            'title': title,
+            'content': content,
+            'thumb_media_id': thumb_media_id,
+            'author': author,
+            'digest': digest,
+            'content_source_url': source_url
+        }
+        # if digest:
+        #     data['digest'] = digest
+        # author = author or AUTHOR
+        # if author:
+        #     data['author'] = author
+        r = await self.c.post('/draft/add', json={'articles': [data]})
         r = r.json()
         print(r.get('errmsg', ''))
         return r.get('media_id')
@@ -153,4 +160,5 @@ class Mp:
 
 
 if __name__ == '__main__':
-    asyncio.run(main(), debug=True)
+    pass
+# asyncio.run(main(), debug=True)

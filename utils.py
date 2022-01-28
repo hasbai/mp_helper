@@ -1,6 +1,10 @@
 import io
+import re
 
+import css_inline
+import markdown2
 from PIL import Image
+from bs4 import BeautifulSoup
 
 Image.MAX_IMAGE_PIXELS = None
 
@@ -36,13 +40,56 @@ def preprocess_image(image: bytes, size=10) -> tuple[bytes, str]:
     return bytes_io.getvalue(), 'jpeg'
 
 
-def markdown_to_html(content: str) -> str:
-    print(content)
-    return content
+def get_abstract(markdown: str) -> tuple[str, str]:
+    """
+    返回 去除摘要的 markdown 和 摘要
+    """
+    li = re.findall(r'---(\s*.+?\s*)<!-- more -->', markdown)
+    if not li:
+        return markdown, ''
+    abstract = li[0]
+    markdown = markdown.replace(f'{abstract}<!-- more -->', '')
+    return markdown, abstract
+
+
+def markdown_to_html(content: str, debug=False) -> tuple[str, dict]:
+    content, abstract = get_abstract(content)
+    html = markdown2.markdown(content, extras=[
+        'metadata', 'cuddled-lists', 'code-friendly', 'fenced-code-blocks', 'footnotes',
+        'tables', 'task_list', 'strike', 'pyshell'
+    ])
+    metadata = html.metadata
+    metadata['abstract'] = abstract.strip()
+    soup = BeautifulSoup(html, 'lxml')
+    # 图片注释
+    for img in soup.select('img'):
+        parent = img.parent
+        parent.append(img.get('alt', ''))
+        parent['class'] = 'img-alt'
+    # 插入 参考资料 标签
+    footnotes = soup.select_one('.footnotes')
+    if footnotes:
+        tag = soup.new_tag('h3')
+        tag.string = '参考资料'
+        footnotes.insert(0, tag)
+        footnotes.select_one('hr').extract()
+    html = f'''
+    <h1>{metadata.get('title')}</h1>
+    <div class="abstract">{abstract}</div>
+    {str(soup).replace('codehilite', 'highlight')}
+    <link rel="stylesheet" type="text/css" href="css/wechat.css">
+    '''
+    if debug:
+        css = '<link rel="stylesheet" type="text/css" href="../css/wechat.css">'
+        html = css + html
+    else:
+        html = css_inline.inline(html)
+
+    return html, metadata
 
 
 if __name__ == '__main__':
     with open('data/md.md', 'r', encoding='utf-8') as f:
-        html = markdown_to_html(f.read())
+        html = markdown_to_html(f.read(), debug=False)
     with open('data/html.html', 'w', encoding='utf-8') as f:
-        f.write(html)
+        f.write(html[0])

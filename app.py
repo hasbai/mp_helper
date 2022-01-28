@@ -35,6 +35,7 @@ async def upload_article(markdown: str, publish=True) -> bool:
             title=metadata.get('title', '文章'),
             content=html,
             digest=metadata.get('abstract'),
+            author=metadata.get('author')
         )
         return await mp.publish(media_id) if publish else bool(media_id)
 

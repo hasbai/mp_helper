@@ -98,20 +98,20 @@ h1, h2 {
     text-align: center;
     display: table;
     line-height: 2rem;
-    margin: auto;
     padding: 0 1rem;
 }
 
 h1 {
     font-size: 1.5rem;
     border-bottom: 2px solid rgba(15, 76, 129, 1);
-    margin: 3rem auto 0 auto;
+    margin: 4rem auto 1rem auto;
 }
 
 h2 {
     font-size: 1.25rem;
     background: rgba(15, 76, 129, 1);
     color: #fff;
+    margin: 2rem auto;
 }
 
 h3 {

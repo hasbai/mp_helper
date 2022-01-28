@@ -5,7 +5,7 @@ from typing import Union
 import httpx
 import orjson
 
-from config import APP_ID, APP_SECRET
+from config import APP_ID, APP_SECRET, AUTHOR
 from config import db
 from utils import preprocess_image
 
@@ -135,15 +135,10 @@ class Mp:
             'title': title,
             'content': content,
             'thumb_media_id': thumb_media_id,
-            'author': author,
+            'author': author or AUTHOR,
             'digest': digest,
             'content_source_url': source_url
         }
-        # if digest:
-        #     data['digest'] = digest
-        # author = author or AUTHOR
-        # if author:
-        #     data['author'] = author
         r = await self.c.post('/draft/add', json={'articles': [data]})
         r = r.json()
         print(r.get('errmsg', ''))

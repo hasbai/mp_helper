@@ -1,4 +1,5 @@
 import asyncio
+import random
 import time
 import uuid
 from typing import Union
@@ -67,12 +68,12 @@ class Mp:
             return access_token
 
     @property
-    async def default_thumb_media_id(self):
-        i = db.get('default_thumb_media_id', '')
+    async def default_thumb_media_id(self) -> list[str]:
+        i = db.get('default_thumb_media_id', [])
         if not i:
             array = await self.list_materials()
             assert len(array) > 0, '至少需要先上传一张图片'
-            i = array[0]['media_id']
+            i = list(map(lambda i: i['media_id'], array))
             db.set('default_thumb_media_id', i)
         return i
 
@@ -131,7 +132,7 @@ class Mp:
 
     async def upload_draft(self, title: str, content: str, digest=None, author=None, source_url=None,
                            thumb_media_id=None) -> str:
-        thumb_media_id = thumb_media_id or await self.default_thumb_media_id
+        thumb_media_id = thumb_media_id or random.choice(await self.default_thumb_media_id)
         data = {
             'title': title,
             'content': content,
@@ -172,7 +173,7 @@ async def update_access_token() -> str:
 
 async def debug():
     async with Mp() as mp:
-        print(await mp.list_materials(offset=0))
+        print(await mp.default_thumb_media_id)
 
 
 if __name__ == '__main__':

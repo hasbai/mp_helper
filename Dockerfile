@@ -24,4 +24,4 @@ ENV PATH="/www/backend/.venv/bin:$PATH"
 
 EXPOSE 80
 
-ENTRYPOINT ["uvicorn", "app:app", "--port", "80"]
+ENTRYPOINT ["uvicorn", "app:app", "--port", "80", "--host", "0.0.0.0"]

@@ -4,9 +4,7 @@ ENV POETRY_VIRTUALENVS_IN_PROJECT="true"
 
 WORKDIR /www/backend
 
-RUN apt update \
-    && apt install -y curl \
-    && curl -sSL https://install.python-poetry.org | python3
+RUN curl -sSL https://install.python-poetry.org | python3
 
 COPY poetry.lock pyproject.toml /www/backend/
 
@@ -26,4 +24,4 @@ ENV PATH="/www/backend/.venv/bin:$PATH"
 
 EXPOSE 80
 
-ENTRYPOINT ["uvicorn", "app:app"]
+ENTRYPOINT ["uvicorn", "app:app", "--port", "80"]

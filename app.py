@@ -12,7 +12,7 @@ from utils import markdown_to_html
 app = FastAPI()
 
 
-async def upload_article(markdown: str, publish=True) -> bool:
+async def upload_article(markdown: str, publish=True, cover_image=None) -> bool:
     # 处理 markdown
     html, metadata = markdown_to_html(markdown)
     async with Mp() as mp:
@@ -29,11 +29,17 @@ async def upload_article(markdown: str, publish=True) -> bool:
         for i, origin_src in enumerate(queue):
             for img in queue[origin_src]:
                 img['src'] = results[i] or origin_src
+        # 文前插入封面图
+        cover_image = await mp.default_cover_image
+        cover_image_id = cover_image['media_id']
+        cover_image_url = cover_image['url']
+        soup.h1.insert_before(soup.new_tag('img', src=cover_image_url))
         html = str(soup)
         # 上传草稿
         media_id = await mp.upload_draft(
             title=metadata.get('title', '文章'),
-            content=html,
+            html=html,
+            thumb_media_id=cover_image_id,
             digest=metadata.get('abstract'),
             author=metadata.get('author')
         )

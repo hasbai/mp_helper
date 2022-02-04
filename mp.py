@@ -68,14 +68,16 @@ class Mp:
             return access_token
 
     @property
-    async def default_thumb_media_id(self) -> list[str]:
-        i = db.get('default_thumb_media_id', [])
-        if not i:
+    async def default_cover_image(self) -> dict:
+        """
+        [{'media_id': media_id, 'url': url}]
+        """
+        array = db.get('default_cover_image', [])
+        if not array:
             array = await self.list_materials()
             assert len(array) > 0, '至少需要先上传一张图片'
-            i = list(map(lambda i: i['media_id'], array))
-            db.set('default_thumb_media_id', i)
-        return i
+            db.set('default_thumb_media_id', array)
+        return random.choice(array)
 
     async def _create_client(self):
         return AsyncClient(
@@ -130,12 +132,17 @@ class Mp:
         print(r.get('errmsg', ''))
         return r.get('item')
 
-    async def upload_draft(self, title: str, content: str, digest=None, author=None, source_url=None,
-                           thumb_media_id=None) -> str:
-        thumb_media_id = thumb_media_id or random.choice(await self.default_thumb_media_id)
+    async def upload_draft(
+            self,
+            title: str,
+            html: str,
+            thumb_media_id: str,
+            digest=None,
+            author=None,
+            source_url=None) -> str:
         data = {
             'title': title,
-            'content': content,
+            'content': html,
             'thumb_media_id': thumb_media_id,
             'author': author or AUTHOR,
             'digest': digest,
@@ -187,7 +194,7 @@ async def update_access_token() -> str:
 
 async def debug():
     async with Mp() as mp:
-        print(await mp.default_thumb_media_id)
+        print(await mp.default_cover_image)
 
 
 if __name__ == '__main__':

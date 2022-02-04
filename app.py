@@ -2,7 +2,7 @@ import asyncio
 from typing import Optional
 
 from bs4 import BeautifulSoup
-from fastapi import FastAPI, Request, UploadFile, Form, HTTPException
+from fastapi import FastAPI, Request, UploadFile, Form
 from starlette.responses import JSONResponse
 
 from config import TOKEN
@@ -37,7 +37,7 @@ async def upload_article(markdown: str, publish=True) -> bool:
             digest=metadata.get('abstract'),
             author=metadata.get('author')
         )
-        return await mp.publish(media_id) if publish else bool(media_id)
+        return bool(media_id)
 
 
 @app.middleware("http")
@@ -59,9 +59,7 @@ async def post_article(file: UploadFile, publish: Optional[bool] = Form(default=
     markdown = await file.read()
     markdown = markdown.decode('utf-8')
     result = await upload_article(markdown=markdown, publish=publish)
-    if not result:
-        raise HTTPException(500)
-    return {'message': 'success'}
+    return {'success': result}
 
 
 if __name__ == '__main__':

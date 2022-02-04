@@ -2,7 +2,7 @@ import asyncio
 from typing import Optional
 
 from bs4 import BeautifulSoup
-from fastapi import FastAPI, Request, UploadFile, Form
+from fastapi import FastAPI, Request, UploadFile, Form, HTTPException
 from starlette.responses import JSONResponse
 
 from config import TOKEN
@@ -13,10 +13,8 @@ app = FastAPI()
 
 
 async def upload_article(markdown: str, publish=True) -> bool:
-    # 处理 markdown，需要显式设置 wechat: true
+    # 处理 markdown
     html, metadata = markdown_to_html(markdown)
-    if not metadata.get('wechat'):
-        return False
     async with Mp() as mp:
         # 图片上传到微信
         soup = BeautifulSoup(html, 'lxml')
@@ -61,7 +59,9 @@ async def post_article(file: UploadFile, publish: Optional[bool] = Form(default=
     markdown = await file.read()
     markdown = markdown.decode('utf-8')
     result = await upload_article(markdown=markdown, publish=publish)
-    return {'success': result}
+    if not result:
+        raise HTTPException(500)
+    return {'message': 'success'}
 
 
 if __name__ == '__main__':

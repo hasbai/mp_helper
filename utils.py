@@ -5,6 +5,7 @@ import css_inline
 import markdown2
 from PIL import Image
 from bs4 import BeautifulSoup
+from markdown import Markdown
 
 Image.MAX_IMAGE_PIXELS = None
 
@@ -40,15 +41,40 @@ def preprocess_image(image: bytes, size=10) -> tuple[bytes, str]:
     return bytes_io.getvalue(), 'jpeg'
 
 
+def markdown_to_plain_text(content):
+    def unmark_element(element, stream=None):
+        if stream is None:
+            stream = io.StringIO()
+        if element.text:
+            stream.write(element.text)
+        for sub in element:
+            unmark_element(sub, stream)
+        if element.tail:
+            stream.write(element.tail)
+        return stream.getvalue()
+
+    # patching Markdown
+    Markdown.output_formats["plain"] = unmark_element
+    # noinspection PyTypeChecker
+    md = Markdown(output_format="plain")
+    md.stripTopLevelTags = False
+
+    # 该方法会把 ![text](url) 中的 text 丢弃，因此需要手动替换
+    content = re.sub(r'!\[(.+)]\(.+\)', r'\1', content)
+
+    return md.convert(content)
+
+
 def get_abstract(markdown: str) -> tuple[str, str]:
     """
     返回 去除摘要的 markdown 和 摘要
     """
-    li = re.findall(r'---(\s*.+?\s*)<!-- more -->', markdown)
-    if not li:
+    pattern = r'(---[\s\S]+---)([\s\S]+)<!-- more -->'
+    li = re.findall(pattern, markdown)
+    if not li or len(li[0]) < 2:
         return markdown, ''
-    abstract = li[0]
-    markdown = markdown.replace(f'{abstract}<!-- more -->', '')
+    abstract = markdown_to_plain_text(li[0][1].strip())
+    markdown = markdown.replace(f'{li[0][1]}<!-- more -->', '')
     return markdown, abstract
 
 
@@ -89,7 +115,7 @@ def markdown_to_html(content: str, debug=False) -> tuple[str, dict]:
 
 
 if __name__ == '__main__':
-    with open('data/md.md', 'r', encoding='utf-8') as f:
+    with open('data/1.md', 'r', encoding='utf-8') as f:
         html = markdown_to_html(f.read(), debug=False)
     with open('data/html.html', 'w', encoding='utf-8') as f:
         f.write(html[0])

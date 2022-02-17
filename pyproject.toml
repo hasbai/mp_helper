@@ -17,6 +17,7 @@ lxml = "^4.7.1"
 markdown2 = "^2.4.2"
 Pygments = "^2.11.2"
 css-inline = "^0.8.1"
+Markdown = "^3.3.6"
 
 [tool.poetry.dev-dependencies]
 

@@ -44,9 +44,9 @@ class AsyncClient(httpx.AsyncClient):
                 return r
 
     async def request(self, *args, **kwargs):
-        if 'json' in kwargs:
+        if kwargs.get('json'):
             kwargs['content'] = orjson.dumps(kwargs['json'])
-            del kwargs['json']
+            kwargs['json'] = None
         r = await self._retry(*args, **kwargs)
         if r.json().get('errcode') == 40001:
             self.params['access_token'] = await update_access_token()
@@ -194,7 +194,7 @@ async def update_access_token() -> str:
 
 async def debug():
     async with Mp() as mp:
-        print(await mp.default_cover_image)
+        print(await mp.upload_image('data/jpeg.jpeg'))
 
 
 if __name__ == '__main__':

@@ -47,6 +47,11 @@ class AsyncClient(httpx.AsyncClient):
         if kwargs.get('json'):
             kwargs['content'] = orjson.dumps(kwargs['json'])
             kwargs['json'] = None
+            header = {"Content-Type": "application/json"}
+            if kwargs.get('headers'):
+                kwargs['headers'].update(header)
+            else:
+                kwargs['headers'] = header
         r = await self._retry(*args, **kwargs)
         if r.json().get('errcode') == 40001:
             self.params['access_token'] = await update_access_token()

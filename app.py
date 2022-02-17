@@ -37,10 +37,10 @@ async def upload_article(markdown: str, publish=True, cover_image=None) -> bool:
         html = str(soup)
         # 上传草稿
         media_id = await mp.upload_draft(
-            title=metadata.get('title', '文章'),
+            title=metadata.get('title', '无题'),
             html=html,
             thumb_media_id=cover_image_id,
-            digest=metadata.get('abstract'),
+            digest=metadata.get('wechat_abstract'),
             author=metadata.get('author')
         )
         return bool(media_id)

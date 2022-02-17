@@ -65,27 +65,28 @@ def markdown_to_plain_text(content):
     return md.convert(content)
 
 
-def get_abstract(markdown: str) -> tuple[str, str]:
+def get_abstract(markdown: str) -> tuple[str, str, str]:
     """
     返回 去除摘要的 markdown 和 摘要
     """
     pattern = r'(---[\s\S]+---)([\s\S]+)<!-- more -->'
     li = re.findall(pattern, markdown)
     if not li or len(li[0]) < 2:
-        return markdown, ''
-    abstract = markdown_to_plain_text(li[0][1].strip())
+        return markdown, '', ''
+    abstract = li[0][1].strip()
+    wechat_abstract = markdown_to_plain_text(abstract)[:50] + '...'
     markdown = markdown.replace(f'{li[0][1]}<!-- more -->', '')
-    return markdown, abstract
+    return markdown, abstract, wechat_abstract
 
 
 def markdown_to_html(content: str, debug=False) -> tuple[str, dict]:
-    content, abstract = get_abstract(content)
+    content, abstract, wechat_abstract = get_abstract(content)
     html = markdown2.markdown(content, extras=[
         'metadata', 'cuddled-lists', 'code-friendly', 'fenced-code-blocks', 'footnotes',
         'tables', 'task_list', 'strike', 'pyshell'
     ])
     metadata = html.metadata
-    metadata['abstract'] = abstract.strip()
+    metadata['wechat_abstract'] = wechat_abstract
     soup = BeautifulSoup(html, 'lxml')
     # 图片注释
     for img in soup.select('img'):
@@ -101,7 +102,7 @@ def markdown_to_html(content: str, debug=False) -> tuple[str, dict]:
         footnotes.select_one('hr').extract()
     html = f'''
     <h1>{metadata.get('title')}</h1>
-    <div class="abstract">{abstract}</div>
+    <div class="abstract">{markdown2.markdown(abstract)}</div>
     {str(soup).replace('codehilite', 'highlight')}
     <link rel="stylesheet" type="text/css" href="css/wechat.css">
     '''

@@ -81,7 +81,7 @@ class Mp:
         if not array:
             array = await self.list_materials()
             assert len(array) > 0, '至少需要先上传一张图片'
-            db.set('default_thumb_media_id', array)
+            db.set('default_cover_image', array)
         return random.choice(array)
 
     async def _create_client(self):
@@ -141,14 +141,14 @@ class Mp:
             self,
             title: str,
             html: str,
-            thumb_media_id: str,
+            thumb_media_id=None,
             digest=None,
             author=None,
             source_url=None) -> str:
         data = {
             'title': title,
             'content': html,
-            'thumb_media_id': thumb_media_id,
+            'thumb_media_id': thumb_media_id or (await self.default_cover_image)['media_id'],
             'author': author or AUTHOR,
             'digest': digest,
             'content_source_url': source_url

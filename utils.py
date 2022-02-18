@@ -65,29 +65,32 @@ def markdown_to_plain_text(content):
     return md.convert(content)
 
 
-def get_abstract(markdown: str) -> tuple[str, str, str]:
-    """
-    返回 去除摘要的 markdown 和 摘要
-    """
-    pattern = r'(---[\s\S]+---)([\s\S]+)<!-- more -->'
-    li = re.findall(pattern, markdown)
-    if not li or len(li[0]) < 2:
-        return markdown, '', ''
-    abstract = li[0][1].strip()
-    wechat_abstract = markdown_to_plain_text(abstract)[:50] + '...'
-    markdown = markdown.replace(f'{li[0][1]}<!-- more -->', '')
-    return markdown, abstract, wechat_abstract
-
-
 def markdown_to_html(content: str, debug=False) -> tuple[str, dict]:
-    content, abstract, wechat_abstract = get_abstract(content)
     html = markdown2.markdown(content, extras=[
         'metadata', 'cuddled-lists', 'code-friendly', 'fenced-code-blocks', 'footnotes',
         'tables', 'task_list', 'strike', 'pyshell'
     ])
     metadata = html.metadata
-    metadata['wechat_abstract'] = wechat_abstract
+    # 摘要
+    html = re.sub(
+        r'([\s\S]*)<!-- more -->',
+        r'<div class="abstract">\1</div><!-- more -->',
+        html
+    )
     soup = BeautifulSoup(html, 'lxml')
+    abstract = soup.select('.abstract')[0]
+    text = abstract.text.strip()
+    if not text:
+        abstract.decompose()
+        metadata['wechat_abstract'] = ''
+    else:
+        metadata['wechat_abstract'] = text[:50] + '...'
+
+    # 标题
+    if metadata.get('title'):
+        tag = soup.new_tag('h1')
+        tag.string = metadata.get('title')
+        soup.body.insert(0, tag)
     # 图片注释
     for img in soup.select('img'):
         parent = img.parent
@@ -100,12 +103,10 @@ def markdown_to_html(content: str, debug=False) -> tuple[str, dict]:
         tag.string = '参考资料'
         footnotes.insert(0, tag)
         footnotes.select_one('hr').extract()
-    html = f'''
-    <h1>{metadata.get('title')}</h1>
-    <div class="abstract">{markdown2.markdown(abstract)}</div>
-    {str(soup).replace('codehilite', 'highlight')}
-    <link rel="stylesheet" type="text/css" href="css/wechat.css">
-    '''
+
+    html = str(soup).replace('codehilite', 'highlight')
+    html += '<link rel="stylesheet" type="text/css" href="css/wechat.css">'
+
     if debug:
         css = '<link rel="stylesheet" type="text/css" href="../css/wechat.css">'
         html = css + html
